@@ -25,7 +25,7 @@ SECRET_KEY = 'django-insecure-mvp)$&!z=%mgz&ye#ir%g^w)%=&y4yv^(cqh@oujodc+pg1v*c
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = False
 
-ALLOWED_HOSTS = ['hfpeixer.pythonanywhere.com', 'localhost', '127.0.0.1']
+ALLOWED_HOSTS = ['https://projeto-bd-8nih.onrender.com', 'localhost', '127.0.0.1']
 
 
 # Application definition
