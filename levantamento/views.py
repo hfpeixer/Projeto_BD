@@ -1,4 +1,4 @@
-from django.shortcuts import render, redirect
+from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib import messages
 from .models import Projeto, Beneficiario, Confrontante, Vertice
 from docx import Document
@@ -77,6 +77,7 @@ def index(request):
                 messages.error(request, 'Projeto selecionado não existe.')
 
         elif action == 'add_projeto':
+
             nome = request.POST.get('nome_projeto')
             endereco = request.POST.get('endereco_projeto')
             area = request.POST.get('area_projeto')
@@ -84,6 +85,9 @@ def index(request):
             epoca_medicao = request.POST.get('epoca_medicao')
             instrumento = request.POST.get('instrumento')
             try:
+                # Converter os valores de area e perimetro (ex.: "1000,50") para float (ex.: 1000.50)
+                area = float(area.replace(',', '.')) if area else 0.0
+                perimetro = float(perimetro.replace(',', '.')) if perimetro else 0.0
                 projeto = Projeto.objects.create(
                     nome=nome,
                     endereco=endereco,
@@ -96,6 +100,32 @@ def index(request):
                 messages.success(request, 'Projeto adicionado com sucesso!')
             except ValueError as e:
                 messages.error(request, f'Erro ao adicionar projeto: {str(e)}')
+
+        elif action == 'edit_projeto':
+            projeto_id = request.POST.get('projeto_id')
+            try:
+                projeto = Projeto.objects.get(id=projeto_id)
+                projeto.nome = request.POST.get('nome_projeto')
+                projeto.endereco = request.POST.get('endereco_projeto')
+                area = request.POST.get('area_projeto')
+                perimetro = request.POST.get('perimetro_projeto')
+                projeto.epoca_medicao = request.POST.get('epoca_medicao')
+                projeto.instrumento = request.POST.get('instrumento')
+
+                # Converter os valores de área e perímetro (ex.: "1000,50") para float (ex.: 1000.50)
+                projeto.area = float(area.replace(',', '.')) if area else 0.0
+                projeto.perimetro = float(perimetro.replace(',', '.')) if perimetro else 0.0
+
+                projeto.save()
+                messages.success(request, 'Projeto atualizado com sucesso!')
+            except Projeto.DoesNotExist:
+                messages.error(request, 'Projeto não encontrado.')
+            except ValueError as e:
+                messages.error(request, f'Erro nos valores numéricos: {str(e)}')
+            except Exception as e:
+                messages.error(request, f'Erro ao atualizar projeto: {str(e)}')
+            return redirect('index')
+
 
         elif action == 'add_beneficiario':
             projeto_id = request.POST.get('projeto_ben')
@@ -405,6 +435,7 @@ def index(request):
 
         elif action == 'edit_vertice':
             vertice_id = request.POST.get('vertice_id')
+            vertice = get_object_or_404(Vertice, id=vertice_id)
             de_vertice = request.POST.get('de_vertice')
             para_vertice = request.POST.get('para_vertice')
             longitude = request.POST.get('longitude_ver')
@@ -414,7 +445,8 @@ def index(request):
             confrontante_texto = request.POST.get('confrontante_texto')
             try:
                 vertice = Vertice.objects.get(id=vertice_id)
-                distancia = float(distancia) if distancia else 0.0
+                # Converter o valor de distancia (ex.: "12,34") para float (ex.: 12.34)
+                distancia = float(distancia.replace(',', '.')) if distancia else 0.0
                 vertice.de_vertice = de_vertice
                 vertice.para_vertice = para_vertice
                 vertice.longitude = longitude
@@ -450,6 +482,27 @@ def index(request):
                 messages.error(request, f'Erro ao excluir vértice: {str(e)}')
 
         elif action == 'gerar_memorial_pdf':
+
+            def mask_cpf_cnpj(value):
+                # Remover caracteres não numéricos
+                import re
+                value = re.sub(r'[^0-9]', '', str(value))
+                if len(value) == 11:  # CPF
+                    return f"***.{value[3:6]}.{value[6:9]}-**"
+                elif len(value) == 14:  # CNPJ
+                    return f"**.{value[2:5]}.{value[5:8]}/{value[8:12]}-**"
+                return value  # Retorna o valor original se não for CPF ou CNPJ
+            def format_cpf_cnpj(value):
+                # Remover caracteres não numéricos
+                import re
+                value = re.sub(r'[^0-9]', '', str(value))
+                if len(value) == 11:  # CPF: 123.456.789.-00
+                    return f"{value[:3]}.{value[3:6]}.{value[6:9]}-{value[9:]}"
+                elif len(value) == 14:  # CNPJ: 12.345.678\0001-00
+                    return f"{value[:2]}.{value[2:5]}.{value[5:8]}\\ {value[8:12]}-{value[12:]}"
+                return value  # Retorna o valor original se não for CPF ou CNPJ
+
+
             projeto_id = request.POST.get('projeto_memorial')
             try:
                 projeto = Projeto.objects.get(id=projeto_id)
@@ -457,7 +510,7 @@ def index(request):
                 beneficiarios = Beneficiario.objects.filter(projeto=projeto)
                 confrontantes = Confrontante.objects.filter(projeto=projeto, excluir_do_pdf=False)
 
-
+                anonimizar = request.POST.get('anonimizar_cpf_cnpj') == '1'
 
                 # Log para depuração
                 print(f"Projeto ID (PDF): {projeto_id}")
@@ -551,7 +604,9 @@ def index(request):
                     # Dados dos beneficiários
                     data = []
                     for ben in beneficiarios:
-                        data.append([Paragraph(ben.nome, ParagraphStyle('Bold', fontName='Times-Bold', fontSize=12)), ben.cpf_cnpj])
+                        # Aplica a máscara apropriada com base na escolha de anonimização
+                        cpf_cnpj = mask_cpf_cnpj(ben.cpf_cnpj) if anonimizar else format_cpf_cnpj(ben.cpf_cnpj)
+                        data.append([Paragraph(ben.nome, ParagraphStyle('Bold', fontName='Times-Bold', fontSize=12)), cpf_cnpj])
                     table_ben = Table(data, colWidths=[10*cm, 6*cm])
                     table_ben.setStyle(TableStyle([
                         ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
@@ -615,7 +670,7 @@ def index(request):
                         ])
                 else:
                     data.append(["Nenhum vértice registrado.", "", "", "", "", ""])
-                table = Table(data, colWidths=[1.5*cm, 1.5*cm, 3*cm, 3*cm, 1.5*cm, 4.5*cm])
+                table = Table(data, colWidths=[1.5*cm, 1.5*cm, 3*cm, 3*cm, 1.5*cm, 6.5*cm])
                 table.setStyle(TableStyle([
                     ('GRID', (0, 0), (-1, -1), 0.5, colors.black),
                     ('BACKGROUND', (0, 0), (-1, 0), colors.lightgrey),
@@ -662,9 +717,10 @@ def index(request):
                 elements.append(Paragraph("<br/>", normal_style))
                 elements.append(Paragraph("<br/>", normal_style))
 
-                # Tabela de Assinaturas (Requerentes e Confrontantes)
-                all_signatures = [(ben.nome, ben.cpf_cnpj, "Requerente") for ben in beneficiarios] + \
-                                [(con.nome, con.cpf_cnpj, "Confrontante") for con in confrontantes]
+                # Tabela de Assinaturas (Beneficiários e Confrontantes)
+                confrontantes_assinaturas = Confrontante.objects.filter(projeto=projeto, excluir_do_pdf=False)
+                all_signatures = [(ben.nome, mask_cpf_cnpj(ben.cpf_cnpj) if anonimizar else format_cpf_cnpj(ben.cpf_cnpj), "Beneficiário") for ben in beneficiarios] + \
+                        [(con.nome, mask_cpf_cnpj(con.cpf_cnpj) if anonimizar else format_cpf_cnpj(con.cpf_cnpj), "Confrontante") for con in confrontantes]
                 if all_signatures:
                     signature_data = []
                     for i in range(0, len(all_signatures), 2):
@@ -708,7 +764,7 @@ def index(request):
                     buffer.getvalue(),
                     content_type='application/pdf'
                 )
-                response['Content-Disposition'] = f'attachment; filename="memorial_descritivo_{projeto.nome}.pdf"'
+                response['Content-Disposition'] = f'attachment; filename="Memorial - {projeto.nome}.pdf"'
                 return response
             except Projeto.DoesNotExist:
                 messages.error(request, 'Projeto selecionado não existe.')

@@ -750,8 +750,8 @@ def index(request):
 
                 doc.add_paragraph()
 
-                # Tabela de Assinaturas (Requerentes e Confrontantes)
-                all_signatures = [(ben.nome, ben.cpf_cnpj, "Requerente") for ben in beneficiarios] + \
+                # Tabela de Assinaturas (Beneficiários e Confrontantes)
+                all_signatures = [(ben.nome, ben.cpf_cnpj, "Beneficiário") for ben in beneficiarios] + \
                                 [(con.nome, con.cpf_cnpj, "Confrontante") for con in confrontantes]
                 rows = max(1, (len(all_signatures) + 1) // 2)  # Pelo menos 1 linha
                 table_sign = doc.add_table(rows=rows, cols=3)
@@ -990,8 +990,8 @@ def index(request):
                 elements.append(Paragraph("<br/>", normal_style))
                 elements.append(Paragraph("<br/>", normal_style))
 
-                # Tabela de Assinaturas (Requerentes e Confrontantes)
-                all_signatures = [(ben.nome, ben.cpf_cnpj, "Requerente") for ben in beneficiarios] + \
+                # Tabela de Assinaturas (Beneficiários e Confrontantes)
+                all_signatures = [(ben.nome, ben.cpf_cnpj, "Beneficiário") for ben in beneficiarios] + \
                                 [(con.nome, con.cpf_cnpj, "Confrontante") for con in confrontantes]
                 if all_signatures:
                     signature_data = []
