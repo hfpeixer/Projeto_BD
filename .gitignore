@@ -27,3 +27,6 @@ media/
 # Arquivos de IDE ou editores
 .vscode/
 .idea/
+
+acessos.txt
+teste.lsp
