@@ -7,7 +7,6 @@ __pycache__/
 env/
 venv/
 *.env
-*.lsp
 
 # Arquivos do banco de dados
 db.sqlite3
